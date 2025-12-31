@@ -37,7 +37,7 @@ Your Laptop                      Raspberry Pi
 
 ```bash
 # Clone and install
-git clone https://github.com/yourusername/esp-remote.git
+git clone https://github.com/super-turbo-engineer/esp-remote.git
 cd esp-remote
 ./install.sh
 source ~/.bashrc  # or open new terminal
