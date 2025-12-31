@@ -61,13 +61,24 @@ uv sync
 COMPLETIONS_DIR="$HOME/.esp-remote/completions"
 mkdir -p "$COMPLETIONS_DIR"
 
+# Create a wrapper script that completions can call
+WRAPPER="$COMPLETIONS_DIR/esp-remote-wrapper"
+cat > "$WRAPPER" << WRAPPER_EOF
+#!/bin/bash
+exec uv run --project "$SCRIPT_DIR" esp-remote "\$@"
+WRAPPER_EOF
+chmod +x "$WRAPPER"
+
 # Generate bash/zsh completions using Click's built-in support
 echo "Generating completions..."
 if [[ "$SHELL_NAME" == "bash" ]]; then
-    _ESP_REMOTE_COMPLETE=bash_source uv run esp-remote > "$COMPLETIONS_DIR/esp-remote.bash"
+    _ESP_REMOTE_COMPLETE=bash_source "$WRAPPER" > "$COMPLETIONS_DIR/esp-remote.bash"
+    # Fix the completion to use our wrapper
+    sed -i "s|\$1|$WRAPPER|g" "$COMPLETIONS_DIR/esp-remote.bash"
     COMPLETION_SOURCE="source $COMPLETIONS_DIR/esp-remote.bash"
 else
-    _ESP_REMOTE_COMPLETE=zsh_source uv run esp-remote > "$COMPLETIONS_DIR/esp-remote.zsh"
+    _ESP_REMOTE_COMPLETE=zsh_source "$WRAPPER" > "$COMPLETIONS_DIR/esp-remote.zsh"
+    sed -i "s|esp-remote|$WRAPPER|g" "$COMPLETIONS_DIR/esp-remote.zsh"
     COMPLETION_SOURCE="source $COMPLETIONS_DIR/esp-remote.zsh"
 fi
 
