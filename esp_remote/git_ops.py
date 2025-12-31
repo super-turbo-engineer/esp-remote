@@ -1,5 +1,7 @@
 """Git operations for device registry."""
 
+import os
+import subprocess
 from pathlib import Path
 from typing import Optional
 
@@ -7,6 +9,28 @@ from git import Repo, InvalidGitRepositoryError
 from git.exc import GitCommandError
 
 from .config import REGISTRY_DIR
+
+
+def _get_gh_token() -> Optional[str]:
+    """Get GitHub token from gh CLI."""
+    try:
+        result = subprocess.run(
+            ["gh", "auth", "token"],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except FileNotFoundError:
+        pass
+    return None
+
+
+def _inject_token_in_url(url: str, token: str) -> str:
+    """Inject token into GitHub URL for authentication."""
+    if "github.com" in url and "x-access-token" not in url:
+        return url.replace("https://github.com", f"https://x-access-token:{token}@github.com")
+    return url
 
 
 def is_git_repo() -> bool:
@@ -62,8 +86,25 @@ def sync(message: str = "Update devices") -> tuple[bool, str]:
     try:
         if repo.remotes:
             origin = repo.remotes.origin
-            origin.pull()
-            origin.push()
+
+            # Get gh token for GitHub URLs
+            token = _get_gh_token()
+            original_url = origin.url
+
+            if token and "github.com" in original_url:
+                # Temporarily use authenticated URL
+                auth_url = _inject_token_in_url(original_url, token)
+                origin.set_url(auth_url)
+                try:
+                    origin.pull()
+                    origin.push()
+                finally:
+                    # Restore original URL (don't store token)
+                    origin.set_url(original_url)
+            else:
+                origin.pull()
+                origin.push()
+
             return True, "Synced with remote"
         return True, "Committed locally (no remote configured)"
     except GitCommandError as e:
