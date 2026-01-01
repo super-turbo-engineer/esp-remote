@@ -317,7 +317,7 @@ def verify(device):
     try:
         with SSHConnection(dev.host) as ssh:
             # Use the symlink if udev is set up
-            dev_path = f"/dev/esp-{dev.name}" if dev.usb_path else "/dev/ttyUSB0"
+            dev_path = f"/dev/{dev.name}" if dev.usb_path else "/dev/ttyUSB0"
             success, message = verify_chip_id(ssh, dev_path, dev.chip_id)
 
             if success:
