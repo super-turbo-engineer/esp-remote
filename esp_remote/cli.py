@@ -106,23 +106,23 @@ def scan(host):
             table = Table(title="ESP Devices Found")
             table.add_column("Device", style="cyan")
             table.add_column("Chip Type")
-            table.add_column("Chip ID", style="green")
-            table.add_column("MAC")
+            table.add_column("ID (chip_id or MAC)", style="green")
             table.add_column("USB Path")
 
             for device, chip_info in results:
                 usb_path = get_usb_path(ssh, device)
 
                 if chip_info:
+                    # Use chip_id if available, otherwise MAC
+                    device_id = chip_info.chip_id or chip_info.mac or ""
                     table.add_row(
                         device,
                         chip_info.chip_type,
-                        chip_info.chip_id,
-                        chip_info.mac,
+                        device_id,
                         usb_path,
                     )
                 else:
-                    table.add_row(device, "[dim]Unknown[/dim]", "", "", usb_path)
+                    table.add_row(device, "[dim]Unknown[/dim]", "", usb_path)
 
             console.print(table)
             console.print()

@@ -50,8 +50,8 @@ def detect_chip_remote(ssh: SSHConnection, device: str) -> Optional[ChipInfo]:
             match = re.search(r"Chip ID: (0x[0-9a-fA-F]+)", line)
             if match:
                 chip_id = match.group(1)
-        elif "MAC:" in line:
-            match = re.search(r"MAC: ([0-9a-fA-F:]+)", line)
+        elif "MAC:" in line and not mac:  # Take first MAC only
+            match = re.search(r"MAC:\s+([0-9a-fA-F:]+)", line)
             if match:
                 mac = match.group(1)
 
@@ -83,13 +83,24 @@ def scan_devices_remote(ssh: SSHConnection) -> list[tuple[str, Optional[ChipInfo
 
 
 def verify_chip_id(ssh: SSHConnection, device: str, expected_id: str) -> tuple[bool, str]:
-    """Verify chip ID matches expected."""
+    """Verify chip ID or MAC matches expected."""
     chip_info = detect_chip_remote(ssh, device)
 
     if not chip_info:
         return False, "Could not read chip info"
 
-    if chip_info.chip_id.lower() == expected_id.lower():
-        return True, f"Chip ID verified: {chip_info.chip_id}"
+    # Check chip_id first, then MAC
+    actual_id = chip_info.chip_id or chip_info.mac
+    if not actual_id:
+        return False, "No chip ID or MAC found"
 
-    return False, f"Chip ID mismatch: expected {expected_id}, got {chip_info.chip_id}"
+    if actual_id.lower() == expected_id.lower():
+        return True, f"Verified: {actual_id}"
+
+    # Also try matching just the chip_id or just the MAC
+    if chip_info.chip_id and chip_info.chip_id.lower() == expected_id.lower():
+        return True, f"Chip ID verified: {chip_info.chip_id}"
+    if chip_info.mac and chip_info.mac.lower() == expected_id.lower():
+        return True, f"MAC verified: {chip_info.mac}"
+
+    return False, f"Mismatch: expected {expected_id}, got {actual_id}"
