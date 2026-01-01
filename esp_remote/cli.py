@@ -330,9 +330,39 @@ def verify(device):
         sys.exit(1)
 
 
+def _detect_baud_rate(port: int) -> int:
+    """Try common baud rates and return one that gives ASCII output."""
+    import serial
+
+    common_rates = [115200, 9600, 74880, 57600, 38400, 19200, 4800]
+
+    for baud in common_rates:
+        try:
+            ser = serial.serial_for_url(
+                f"rfc2217://localhost:{port}", baudrate=baud, timeout=0.5
+            )
+            # Read some data
+            data = ser.read(100)
+            ser.close()
+
+            if len(data) < 5:
+                continue
+
+            # Check if mostly printable ASCII
+            printable = sum(1 for b in data if 0x20 <= b <= 0x7E or b in (0x0A, 0x0D, 0x09))
+            ratio = printable / len(data)
+
+            if ratio > 0.7:  # 70% printable = likely correct
+                return baud
+        except Exception:
+            continue
+
+    return 115200  # Default fallback
+
+
 @main.command()
 @click.argument("device")
-@click.option("-b", "--baud", default=115200, help="Baud rate")
+@click.option("-b", "--baud", default=None, type=int, help="Baud rate (auto-detect if not specified)")
 @click.option("--raw", is_flag=True, help="Raw output mode (no interactive input)")
 def monitor(device, baud, raw):
     """Open serial monitor for a device."""
@@ -348,6 +378,12 @@ def monitor(device, baud, raw):
     if not is_port_open(dev.local_port):
         console.print(f"[red]Not connected. Run: esp-remote connect {device}[/red]")
         sys.exit(1)
+
+    # Auto-detect baud rate if not specified
+    if baud is None:
+        console.print(f"[cyan]Auto-detecting baud rate...[/cyan]")
+        baud = _detect_baud_rate(dev.local_port)
+        console.print(f"[green]Detected: {baud}[/green]")
 
     console.print(f"[cyan]Connecting to {device} @ {baud}...[/cyan]")
     console.print("[dim]Press Ctrl+C to exit[/dim]\n")
