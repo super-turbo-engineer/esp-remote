@@ -5,6 +5,9 @@ from typing import Optional
 from .registry import Device, Registry
 from .ssh import SSHConnection
 
+# The serial ports carry no authentication, so they are reachable only through the SSH tunnel.
+ACCEPTER_BIND_ADDRESS = "127.0.0.1"
+
 
 def generate_config(devices: list[Device], baud: int = 115200) -> str:
     """Generate ser2net.yaml config for devices."""
@@ -17,7 +20,7 @@ def generate_config(devices: list[Device], baud: int = 115200) -> str:
         lines.extend([
             f"",
             f"connection: &{device.name.replace('-', '_')}",
-            f"  accepter: telnet(rfc2217),tcp,{device.remote_port}",
+            f"  accepter: telnet(rfc2217),tcp,{ACCEPTER_BIND_ADDRESS},{device.remote_port}",
             f"  connector: serialdev,{dev_path},{baud}n81,local",
             f"  options:",
             f"    kickolduser: true",
